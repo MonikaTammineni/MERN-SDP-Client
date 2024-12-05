@@ -1,0 +1,58 @@
+/* Home Page Styles */
+.homepage {
+    text-align: center;
+    font-family: Arial, sans-serif;
+    background-color: #d6c9fe;
+    padding: 40px;
+    min-height: 100vh; /* Full height for the homepage */
+  }
+  
+  .homepage-header {
+    background-color: #d6c9fe; /* Header color */
+    color: #d6c9fe;
+    padding: 10px;
+  }
+  
+  .homepage-content {
+    margin: 20px;
+  }
+  
+  /* Section Styles */
+  .section {
+    margin: 40px 0;
+    padding: 20px;
+  }
+  
+  /* Content Box Styles */
+  .content-box {
+    display: flex;
+    align-items: flex-start; /* Aligns items to the top */
+    background-color: #e8f0fe; /* Light blue background for content boxes */
+    border-radius: 10px; /* Rounded corners */
+    padding: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .content-image {
+    border-radius: 10px; /* Rounded corners for the image */
+    margin-right: 15px; /* Space between image and text */
+    width: 150px; /* Fixed width for images */
+    height: auto; /* Maintain aspect ratio */
+  }
+  
+  .content-text {
+    text-align: left; /* Left justify text */
+    flex: 1; /* Allow text to take remaining space */
+  }
+  
+  .homepage-footer {
+    margin-top: 20px;
+    font-size: 14px;
+    color: black;
+  }
+  
+ .hospitalimage{
+  width:98.44%;
+  height: max-content;
+  background-size: cover ;
+ } 
