@@ -1,2 +1,2 @@
-const URL= "https://mern-sdp-server.onrender.com";
+const URL= `http://loaclhost:8080/api/v1`;
 export default URL;
