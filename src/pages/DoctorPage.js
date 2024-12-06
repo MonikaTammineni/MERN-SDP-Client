@@ -5,7 +5,9 @@ import {
     ClockCircleOutlined, 
     UserOutlined, 
     LogoutOutlined,
-    DashboardOutlined
+    DashboardOutlined,
+    PlusOutlined,
+    MinusCircleOutlined
 } from '@ant-design/icons';
 import moment from 'moment';
 import axios from 'axios';
@@ -22,6 +24,7 @@ const DoctorPage = () => {
     const [blockedSlots, setBlockedSlots] = useState([]);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedDate, setSelectedDate] = useState(null);
+    const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [form] = Form.useForm();
     const navigate = useNavigate();
     const [statistics, setStatistics] = useState({
@@ -29,6 +32,9 @@ const DoctorPage = () => {
         pendingAppointments: 0,
         todayAppointments: 0
     });
+    const [isPrescriptionModalVisible, setIsPrescriptionModalVisible] = useState(false);
+    const [selectedAppointmentId, setSelectedAppointmentId] = useState(null);
+    const [prescriptionForm] = Form.useForm();
 
     const user = JSON.parse(localStorage.getItem('user'));
 
@@ -43,7 +49,7 @@ const DoctorPage = () => {
             const token = localStorage.getItem('token');
             console.log('Using token:', token);
 
-            const res = await axios.get(`http://localhost:8080/api/v1/doctor/appointments`, {
+            const res = await axios.get(url+`/doctor/appointments`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             
@@ -67,7 +73,7 @@ const DoctorPage = () => {
 
     const fetchBlockedSlots = async () => {
         try {
-            const res = await axios.get(`http://localhost:8080/api/v1/doctor/blocked-slots`, {
+            const res = await axios.get(url+`/doctor/blocked-slots`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             setBlockedSlots(res.data.blockedSlots);
@@ -78,22 +84,35 @@ const DoctorPage = () => {
 
     const handleAppointmentStatus = async (appointmentId, status) => {
         try {
-            await axios.put(
-                `http://localhost:8080/api/v1/doctor/appointment-status`,
-                { appointmentId, status },
-                { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }}
+            console.log('Updating appointment:', { appointmentId, status }); // Debug log
+            
+            const res = await axios.put(
+                url+'/doctor/appointment-status',
+                {
+                    appointmentId: appointmentId,
+                    status: status
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem('token')}`
+                    }
+                }
             );
-            message.success(`Appointment ${status}`);
-            fetchAppointments();
+
+            if (res.data.success) {
+                message.success(`Appointment ${status} successfully`);
+                fetchAppointments(); // Refresh the list
+            }
         } catch (error) {
-            message.error('Error updating appointment status');
+            console.error('Error updating appointment:', error);
+            message.error('Failed to update appointment status');
         }
     };
 
     const handleBlockSlot = async (values) => {
         try {
             await axios.post(
-                `http://localhost:8080/api/v1/doctor/block-slot`,
+                url+`/doctor/block-slot`,
                 {
                     date: selectedDate.format('YYYY-MM-DD'),
                     time: values.time.format('HH:mm'),
@@ -110,24 +129,60 @@ const DoctorPage = () => {
         }
     };
 
-    const handleCompleteAppointment = async (appointmentId, prescriptionFile) => {
-        const formData = new FormData();
-        formData.append('prescription', prescriptionFile); // Append the prescription file
-
+    const handleCompleteAppointment = async (appointmentId, file) => {
         try {
-            const token = localStorage.getItem('token');
-            await axios.put(`http://localhost:8080/api/v1/doctor/appointment-status`, {
-                appointmentId,
-                status: 'completed',
-                prescription: formData // Send the prescription file
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const formData = new FormData();
+            formData.append('prescription', file);
 
-            message.success('Appointment marked as completed');
-            fetchAppointments(); // Refresh the appointments list
+            const res = await axios.put(
+                url+'/doctor/appointment-status',
+                {
+                    appointmentId: appointmentId,
+                    status: 'completed',
+                    prescription: file.name // Send the file name
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem('token')}`
+                    }
+                }
+            );
+
+            if (res.data.success) {
+                message.success('Appointment completed and prescription uploaded');
+                fetchAppointments();
+            }
         } catch (error) {
-            message.error('Error completing appointment');
+            console.error('Error completing appointment:', error);
+            message.error('Failed to complete appointment');
+        }
+    };
+
+    const handlePrescriptionSubmit = async (values) => {
+        try {
+            const res = await axios.put(
+                url+'/doctor/appointment-status',
+                {
+                    appointmentId: selectedAppointmentId,
+                    status: 'completed',
+                    prescription: values
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem('token')}`
+                    }
+                }
+            );
+
+            if (res.data.success) {
+                message.success('Prescription added and appointment completed');
+                setIsPrescriptionModalVisible(false);
+                prescriptionForm.resetFields();
+                fetchAppointments();
+            }
+        } catch (error) {
+            console.error('Error adding prescription:', error);
+            message.error('Failed to add prescription');
         }
     };
 
@@ -183,15 +238,15 @@ const DoctorPage = () => {
                         </>
                     )}
                     {record.status === 'confirmed' && (
-                        <Upload 
-                            beforeUpload={file => {
-                                handleCompleteAppointment(record._id, file); // Handle file upload
-                                return false; // Prevent automatic upload
+                        <Button 
+                            type="primary"
+                            onClick={() => {
+                                setSelectedAppointmentId(record._id);
+                                setIsPrescriptionModalVisible(true);
                             }}
-                            showUploadList={false}
                         >
-                            <Button type="primary">Upload Prescription</Button>
-                        </Upload>
+                            Add Prescription
+                        </Button>
                     )}
                 </div>
             ),
@@ -243,9 +298,8 @@ const DoctorPage = () => {
         switch (currentPage) {
             case '1':
                 return (
-                    <Tabs defaultActiveKey="1">
-                        <TabPane tab="Dashboard" key="1">
-                            <Row gutter={16}>
+                    <div>
+                        <Row gutter={16}>
                                 <Col span={8}>
                                     <Card>
                                         <Statistic
@@ -274,18 +328,20 @@ const DoctorPage = () => {
                                     </Card>
                                 </Col>
                             </Row>
-                        </TabPane>
-
-                        <TabPane tab="Appointments" key="2">
-                            <Table 
-                                columns={appointmentColumns} 
-                                dataSource={appointments}
-                                rowKey="_id"
-                            />
-                        </TabPane>
-
-                        <TabPane tab="Schedule" key="3">
-                            <Button 
+                    </div>
+                );
+            case '2':
+                return <div>
+                    <Table 
+                        columns={appointmentColumns} 
+                        dataSource={appointments}
+                        rowKey="_id"
+                        
+                    />
+                    </div>; // Replace with actual appointments content
+            case '3':
+                return <div>
+                    <Button 
                                 type="primary" 
                                 onClick={() => {
                                     setSelectedDate(moment());
@@ -302,13 +358,7 @@ const DoctorPage = () => {
                                     setIsModalVisible(true);
                                 }}
                             />
-                        </TabPane>
-                    </Tabs>
-                );
-            case '2':
-                return <div>Appointments Content</div>; // Replace with actual appointments content
-            case '3':
-                return <div>Schedule Content</div>; // Replace with actual schedule content
+                </div>; // Replace with actual schedule content
             default:
                 return null;
         }
@@ -403,6 +453,75 @@ const DoctorPage = () => {
                     <Form.Item>
                         <Button type="primary" htmlType="submit">
                             Block Slot
+                        </Button>
+                    </Form.Item>
+                </Form>
+            </Modal>
+            <Modal
+                title="Add Prescription"
+                visible={isPrescriptionModalVisible}
+                onCancel={() => {
+                    setIsPrescriptionModalVisible(false);
+                    prescriptionForm.resetFields();
+                }}
+                footer={null}
+            >
+                <Form
+                    form={prescriptionForm}
+                    onFinish={handlePrescriptionSubmit}
+                    layout="vertical"
+                >
+                    <Form.List name="medicines">
+                        {(fields, { add, remove }) => (
+                            <>
+                                {fields.map(({ key, name, ...restField }) => (
+                                    <div key={key} style={{ display: 'flex', marginBottom: 8 }}>
+                                        <Form.Item
+                                            {...restField}
+                                            name={[name, 'name']}
+                                            rules={[{ required: true, message: 'Missing medicine name' }]}
+                                            style={{ flex: 1, marginRight: 8 }}
+                                        >
+                                            <Input placeholder="Medicine Name" />
+                                        </Form.Item>
+                                        <Form.Item
+                                            {...restField}
+                                            name={[name, 'dosage']}
+                                            rules={[{ required: true, message: 'Missing dosage' }]}
+                                            style={{ flex: 1, marginRight: 8 }}
+                                        >
+                                            <Input placeholder="Dosage" />
+                                        </Form.Item>
+                                        <Form.Item
+                                            {...restField}
+                                            name={[name, 'duration']}
+                                            rules={[{ required: true, message: 'Missing duration' }]}
+                                            style={{ flex: 1, marginRight: 8 }}
+                                        >
+                                            <Input placeholder="Duration" />
+                                        </Form.Item>
+                                        <MinusCircleOutlined onClick={() => remove(name)} />
+                                    </div>
+                                ))}
+                                <Form.Item>
+                                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                                        Add Medicine
+                                    </Button>
+                                </Form.Item>
+                            </>
+                        )}
+                    </Form.List>
+
+                    <Form.Item
+                        name="instructions"
+                        label="Additional Instructions"
+                    >
+                        <Input.TextArea />
+                    </Form.Item>
+
+                    <Form.Item>
+                        <Button type="primary" htmlType="submit">
+                            Submit Prescription
                         </Button>
                     </Form.Item>
                 </Form>

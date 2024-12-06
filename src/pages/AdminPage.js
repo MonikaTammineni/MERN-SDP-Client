@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Card, Table, Button, Modal, Form, Input, message, Tabs, Row, Col, Statistic, Space } from 'antd';
+import { Layout, Menu, Card, Table, Button, Modal, Form, Input, message, Tabs,  Row, Col, Statistic, Space, Spin, List, Tag , message as antMessage} from 'antd';
 import { 
   UserOutlined, 
   MedicineBoxOutlined, 
@@ -10,6 +10,7 @@ import {
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/logo.png';
+import moment from 'moment';
 
 const { Sider, Content, Header } = Layout;
 
@@ -32,9 +33,12 @@ const AdminPage = () => {
   const [passwordForm] = Form.useForm();
   const user = JSON.parse(localStorage.getItem('user'));
   const navigate = useNavigate();
+  const [messages, setMessages] = useState([]);
+  const [messageLoading, setMessageLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
+    fetchMessages();
   }, []);
 
   const fetchData = async () => {
@@ -44,13 +48,13 @@ const AdminPage = () => {
       console.log('Token:', token); // Debug log
 
       const [doctorsRes, usersRes, appointmentsRes] = await Promise.all([
-        axios.get('http://localhost:8080/api/v1/admin/doctors', {
+        axios.get(url+'/admin/doctors', {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get('http://localhost:8080/api/v1/admin/users', {
+        axios.get(url+'/admin/users', {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get('http://localhost:8080/api/v1/admin/appointments', {
+        axios.get(url+'/admin/appointments', {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
@@ -74,10 +78,30 @@ const AdminPage = () => {
     }
   };
 
+  const fetchMessages = async () => {
+    try {
+      setMessageLoading(true);
+      const res = await axios.get(url+'/admin/messages', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (res.data.success) {
+        setMessages(res.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      message.error('Failed to fetch messages');
+    } finally {
+      setMessageLoading(false);
+    }
+  };
+
   const handleAddDoctor = async (values) => {
     try {
       const res = await axios.post(
-        'http://localhost:8080/api/v1/admin/add-doctor',
+        url+'/admin/add-doctor',
         { ...values, role: 'doctor' },
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }}
       );
@@ -96,7 +120,7 @@ const AdminPage = () => {
   const handleAddUser = async (values) => {
     try {
       const res = await axios.post(
-        'http://localhost:8080/api/v1/admin/add-user',
+        url+'/admin/add-user',
         { ...values, role: 'user' },
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }}
       );
@@ -115,7 +139,7 @@ const AdminPage = () => {
   const handleDelete = async (id, type) => {
     try {
       const res = await axios.delete(
-        `http://localhost:8080/api/v1/admin/${type}/${id}`,
+        url+`/admin/${type}/${id}`,
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }}
       );
       
@@ -137,7 +161,7 @@ const AdminPage = () => {
   const handlePasswordChange = async (values) => {
     try {
       const res = await axios.put(
-        'http://localhost:8080/api/v1/admin/change-password',
+        url+'/admin/change-password',
         {
           userId: selectedUser._id,
           newPassword: values.newPassword
@@ -157,6 +181,30 @@ const AdminPage = () => {
       message.error('Error changing password');
     }
   };
+
+  
+// Add this function to handle marking messages as read
+const handleMarkAsRead = async (messageId) => {
+  try {
+      const res = await axios.put(
+          url+`/admin/messages/${messageId}`,
+          {},
+          {
+              headers: {
+                  Authorization: `Bearer ${localStorage.getItem('token')}`
+              }
+          }
+      );
+
+      if (res.data.success) {
+          message.success('Message marked as read');
+          fetchMessages(); // Refresh the messages list
+      }
+  } catch (error) {
+      console.error('Error marking message as read:', error);
+      message.error('Failed to mark message as read');
+  }
+};
 
   const doctorColumns = [
     {
@@ -402,6 +450,62 @@ const AdminPage = () => {
         </Header>
         <Content style={{ margin: '24px 16px', padding: 24, minHeight: 280, background: '#fff' }}>
           {renderContent()}
+          <div>
+            <h2>Messages</h2>
+            <Card>
+              {messageLoading ? (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <Spin size="large" />
+                </div>
+              ) : (
+                <Table
+                  dataSource={messages}
+                  rowKey="_id"
+                  columns={[
+                    {
+                      title: 'Email',
+                      dataIndex: 'email',
+                      key: 'email'
+                    },
+                    {
+                      title: 'Message',
+                      dataIndex: 'message',
+                      key: 'message'
+                    },
+                    {
+                      title: 'Status',
+                      dataIndex: 'status',
+                      key: 'status',
+                      render: (status) => (
+                        <Tag color={status === 'pending' ? 'gold' : 'green'}>
+                          {status.toUpperCase()}
+                        </Tag>
+                      )
+                    },
+                    {
+                      title: 'Date',
+                      dataIndex: 'createdAt',
+                      key: 'createdAt',
+                      render: (date) => moment(date).format('YYYY-MM-DD HH:mm:ss')
+                    },
+                    {
+                      title: 'Actions',
+                      key: 'actions',
+                      render: (_, record) => (
+                        <Button
+                          type="primary"
+                          disabled={record.status === 'read'}
+                          onClick={() => handleMarkAsRead(record._id)}
+                        >
+                          Mark as Read
+                        </Button>
+                      )
+                    }
+                  ]}
+                />
+              )}
+            </Card>
+          </div>
         </Content>
       </Layout>
 

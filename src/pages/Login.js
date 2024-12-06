@@ -12,7 +12,7 @@ const Login = () => {
     const onFinishHandler = async (values) => {
         try {
             setLoading(true);
-            const res = await axios.post("http://localhost:8080/api/v1/user/login", values);
+            const res = await axios.post(url+"/user/login", values);
             
             if (res.data.success) {
                 localStorage.setItem("token", res.data.token);

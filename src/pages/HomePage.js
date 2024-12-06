@@ -1,7 +1,9 @@
-import React from 'react';
-import { Layout, Card, Row, Col, Image } from 'antd';
+import React, { useState } from 'react';
+import { Layout, Card, Row, Col, Image, Form, Input, Button } from 'antd';
 import { Link } from 'react-router-dom';
 import Logo from '../components/logo.png';
+import axios from 'axios';
+import { message } from 'antd';
 
 const { Header, Content, Footer } = Layout;
 
@@ -9,6 +11,47 @@ const hospitalBlue = '#4a90e2';
 const lightGray = '#f5f7fa';
 
 const HomePage = () => {
+    const [messageData, setMessageData] = useState({
+        email: '',
+        message: ''
+    });
+    const [sending, setSending] = useState(false);
+
+    const handleMessageSubmit = async (e) => {
+        e.preventDefault();
+        
+        try {
+            setSending(true);
+            console.log('Sending message data:', messageData); // Debug log
+
+            const res = await axios.post(
+                url+'/messages', 
+                messageData,
+                {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            console.log('Response:', res.data); // Debug log
+
+            if (res.data.success) {
+                message.success('Message sent successfully');
+                // Clear the form
+                setMessageData({
+                    email: '',
+                    message: ''
+                });
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
+            message.error(error.response?.data?.message || 'Failed to send message');
+        } finally {
+            setSending(false);
+        }
+    };
+
     return (
         <Layout style={{ backgroundColor: 'black', color: hospitalBlue, minHeight: '100vh' }}>
             <Header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', backgroundColor: lightGray, zIndex: 1000 }}>
@@ -102,24 +145,62 @@ const HomePage = () => {
                         </Card>
                     </Col>
                 </Row>
-            </Content>
 
-            {/* Contact Us Section */}
-            <div style={{ padding: '40px', backgroundColor: hospitalBlue, color: 'white' }}>
-                <h2 style={{ textAlign: 'center' }}>Contact Us</h2>
-                <p style={{ textAlign: 'center' }}>123 Health Street, Cityville, ST 12345</p>
-                <p style={{ textAlign: 'center' }}>Phone: (123) 456-7890 | Email: info@hospital.com</p>
-                <h3 style={{ textAlign: 'center' }}>Operating Hours</h3>
-                <p style={{ textAlign: 'center' }}>Monday - Friday: 8 AM - 8 PM</p>
-                <p style={{ textAlign: 'center' }}>Saturday - Sunday: 9 AM - 5 PM</p>
-                <h3 style={{ textAlign: 'center' }}>Get in Touch</h3>
-                <form style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <input type="text" placeholder="Your Name" style={inputStyle} />
-                    <input type="email" placeholder="Your Email" style={inputStyle} />
-                    <textarea placeholder="Your Message" style={{ ...inputStyle, height: '100px' }} />
-                    <button type="submit" style={{ ...buttonStyle, backgroundColor: 'white', color: hospitalBlue }}>Send Message</button>
-                </form>
-            </div>
+                <div style={{ padding: '40px', backgroundColor: hospitalBlue, color: 'white' }}>
+                    <h2 style={{ textAlign: 'center' }}>Contact Us</h2>
+                    <p style={{ textAlign: 'center' }}>123 Health Street, Cityville, ST 12345</p>
+                    <p style={{ textAlign: 'center' }}>Phone: (123) 456-7890</p>
+                    <h3 style={{ textAlign: 'center' }}>Get in Touch</h3>
+                    <form 
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                        onSubmit={handleMessageSubmit}
+                    >
+                        <input 
+                            type="email" 
+                            placeholder="Your Email" 
+                            style={{ 
+                                ...inputStyle, 
+                                marginBottom: '15px',
+                                color: 'black'
+                            }}
+                            value={messageData.email}
+                            onChange={(e) => setMessageData(prev => ({
+                                ...prev,
+                                email: e.target.value
+                            }))}
+                            required
+                        />
+                        <textarea 
+                            placeholder="Your Message" 
+                            style={{ 
+                                ...inputStyle, 
+                                height: '100px', 
+                                marginBottom: '15px',
+                                color: 'black'
+                            }}
+                            value={messageData.message}
+                            onChange={(e) => setMessageData(prev => ({
+                                ...prev,
+                                message: e.target.value
+                            }))}
+                            required
+                        />
+                        <button 
+                            type="submit" 
+                            style={{ 
+                                ...buttonStyle, 
+                                backgroundColor: sending ? '#ccc' : 'white', 
+                                color: hospitalBlue,
+                                cursor: sending ? 'not-allowed' : 'pointer',
+                                width: '200px'
+                            }}
+                            disabled={sending}
+                        >
+                            {sending ? 'Sending...' : 'Send Message'}
+                        </button>
+                    </form>
+                </div>
+            </Content>
 
             {/* Footer Section */}
             <Footer style={{ backgroundColor: lightGray, color: 'black', textAlign: 'center', padding: '20px' }}>
@@ -142,10 +223,12 @@ const buttonStyle = {
 // Input style
 const inputStyle = {
     width: '80%',
+    maxWidth: '500px',
     padding: '10px',
-    margin: '10px 0',
+    margin: '5px 0',
     borderRadius: '5px',
-    border: '1px solid #ccc',
+    border: 'none',
+    color: 'black',
 };
 
 export default HomePage;

@@ -5,7 +5,7 @@ import axios from 'axios';
 const CreateUser = () => {
   const onFinish = async (values) => {
     try {
-      const res = await axios.post('http://localhost:8080/api/v1/user/create', values);
+      const res = await axios.post(url+'/user/create', values);
       if (res.data.success) {
         message.success('User created successfully!');
       } else {

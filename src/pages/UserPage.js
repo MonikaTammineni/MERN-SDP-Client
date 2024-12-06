@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Card, Table, Button, Modal, Form, Input, DatePicker, TimePicker, message, Row, Col, Typography } from 'antd';
+import { Layout, Menu, Card, Table, Button, Modal, Form, Input, DatePicker, TimePicker, message,List, Row, Col, Typography, Tag, Spin, Empty } from 'antd';
 import { 
     DashboardOutlined,
     MedicineBoxOutlined,
@@ -12,8 +12,10 @@ import moment from 'moment';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/logo.png';
+import url from '../variables';
 
 const { Sider, Content, Header } = Layout;
+const { Text } = Typography;
 
 const UserPage = () => {
     const [collapsed, setCollapsed] = useState(false);
@@ -26,20 +28,27 @@ const UserPage = () => {
     const [loading, setLoading] = useState(false);
     const [form] = Form.useForm();
     const user = JSON.parse(localStorage.getItem('user'));
-    const [patientProfile, setPatientProfile] = useState(null);
     const [records, setRecords] = useState([]);
+    const [prescriptions, setPrescriptions] = useState([]);
+    const [prescriptionModalVisible, setPrescriptionModalVisible] = useState(false);
+    const [selectedPrescription, setSelectedPrescription] = useState(null);
 
     useEffect(() => {
         fetchDoctors();
         fetchAppointments();
-        fetchPatientProfile();
         fetchRecords();
     }, []);
+
+    useEffect(() => {
+        if (currentPage === '5') { // Assuming '5' is your Records tab key
+            fetchPrescriptions();
+        }
+    }, [currentPage]);
 
     const fetchDoctors = async () => {
         try {
             setLoading(true);
-            const res = await axios.get('http://localhost:8080/api/v1/user/doctors', {
+            const res = await axios.get(url+'/user/doctors', {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             setDoctors(res.data.doctors);
@@ -54,7 +63,7 @@ const UserPage = () => {
     const fetchAppointments = async () => {
         try {
             setLoading(true);
-            const res = await axios.get('http://localhost:8080/api/v1/user/appointments', {
+            const res = await axios.get(url+'/user/appointments', {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             setAppointments(res.data.appointments);
@@ -66,35 +75,48 @@ const UserPage = () => {
         }
     };
 
-    const fetchPatientProfile = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:8080/api/v1/user/profile', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (response.data) {
-                setPatientProfile(response.data);
-                form.setFieldsValue(response.data); // Set form values with fetched data
-            } else {
-                setPatientProfile(null); // No profile data found
-            }
-        } catch (error) {
-            console.error('Error fetching patient profile:', error);
-            message.error('Error fetching patient profile');
-            setPatientProfile(null); // Reset profile if there's an error
-        }
-    };
-
     const fetchRecords = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:8080/api/v1/user/records', {
+            const response = await axios.get(url+'/user/records', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setRecords(response.data.records);
         } catch (error) {
             console.error('Error fetching records:', error);
             message.error('Error fetching records');
+        }
+    };
+
+    const fetchPrescriptions = async () => {
+        try {
+            setLoading(true);
+            console.log('Fetching prescriptions...');
+            
+            const token = localStorage.getItem('token');
+            console.log('Using token:', token);
+
+            const res = await axios.get(url+'/user/prescriptions', {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            console.log('Prescription response:', res.data);
+
+            if (res.data.success) {
+                setPrescriptions(res.data.data);
+                if (res.data.data.length === 0) {
+                    message.info('No prescriptions found');
+                }
+            } else {
+                throw new Error(res.data.message || 'Failed to fetch prescriptions');
+            }
+        } catch (error) {
+            console.error('Error fetching prescriptions:', error);
+            message.error('Failed to fetch prescriptions: ' + (error.response?.data?.message || error.message));
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -119,7 +141,7 @@ const UserPage = () => {
             };
 
             const res = await axios.post(
-                'http://localhost:8080/api/v1/user/book-appointment',
+                url+'/user/book-appointment',
                 appointmentData,
                 {
                     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -140,109 +162,8 @@ const UserPage = () => {
         }
     };
 
-    const handleProfileSubmit = async (values) => {
-        try {
-            const token = localStorage.getItem('token');
-            if (patientProfile) {
-                // Update existing profile
-                await axios.put('http://localhost:8080/api/v1/user/profile', values, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                message.success('Profile updated successfully');
-            } else {
-                // Create new profile
-                await axios.post('http://localhost:8080/api/v1/user/profile', values, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                message.success('Profile created successfully');
-            }
-            fetchPatientProfile(); // Refresh profile data
-        } catch (error) {
-            message.error('Error updating or creating profile');
-        }
-    };
-    
-    const handleProfileUpdate = async (values) => {
-        try {
-            const token = localStorage.getItem('token');
-            const response = await axios.put('http://localhost:8080/api/v1/user/profile', values, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            message.success('Profile updated successfully');
-            setPatientProfile(response.data);
-            setIsModalVisible(false);
-        } catch (error) {
-            console.error('Error updating profile:', error);
-            message.error('Error updating profile');
-        }
-    };
-
-    const handleProfileCreate = async (values) => {
-        try {
-            const token = localStorage.getItem('token');
-            const response = await axios.post('http://localhost:8080/api/v1/user/profile', values, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            message.success('Profile created successfully');
-            setPatientProfile(response.data);
-            setIsModalVisible(false);
-        } catch (error) {
-            console.error('Error creating profile:', error);
-            message.error('Error creating profile');
-        }
-    };
-
-    const handleProfileClick = () => {
-        setIsModalVisible(true);
-        fetchPatientProfile(); // Fetch profile data when modal is opened
-    };
-
-    const renderProfileForm = () => {
-        return (
-            <Form layout="vertical" onFinish={handleProfileSubmit} initialValues={patientProfile || {}}>
-                <Form.Item label="Name" name="name" rules={[{ required: true, message: 'Please enter your name' }]}>
-                    <Input />
-                </Form.Item>
-                <Form.Item label="Age" name="age" rules={[{ required: true, message: 'Please enter your age' }]}>
-                    <Input type="number" />
-                </Form.Item>
-                <Form.Item label="Chronic Diseases" name="chronicDiseases">
-                    <Input.TextArea />
-                </Form.Item>
-                <Form.Item label="Contact Number" name="contactNumber" rules={[{ required: true, message: 'Please enter your contact number' }]}>
-                    <Input />
-                </Form.Item>
-                <Button type="primary" htmlType="submit">
-                    {patientProfile ? 'Save Profile' : 'Create Profile'}
-                </Button>
-            </Form>
-        );
-    };
-
     const renderContent = () => {
-        if (currentPage === 'profile') {
-            return (
-                <div>
-                    <h2>{patientProfile ? 'Edit Profile' : 'Add Profile'}</h2>
-                    {renderProfileForm()}
-                </div>
-            );
-        } else if (currentPage === 'records') {
-            return (
-                <Card title="Your Records">
-                    {records.length > 0 ? (
-                        records.map(record => (
-                            <Typography.Paragraph key={record._id}>
-                                <a href={record.fileUrl} target="_blank" rel="noopener noreferrer">{record.fileName}</a>
-                            </Typography.Paragraph>
-                        ))
-                    ) : (
-                        <Typography.Paragraph>No records found.</Typography.Paragraph>
-                    )}
-                </Card>
-            );
-        }
-        switch(currentPage) {
+        switch (currentPage) {
             case '1': // Dashboard
                 return (
                     <div className="site-card-wrapper">
@@ -333,6 +254,141 @@ const UserPage = () => {
                         scroll={{ x: true }}
                     />
                 );  
+            case '5': // Records
+                return (
+                    <div style={{ padding: '20px' }}>
+                        <h2>Medical Records & Prescriptions</h2>
+                        {loading ? (
+                            <div style={{ textAlign: 'center', padding: '20px' }}>
+                                <Spin size="large" />
+                            </div>
+                        ) : (
+                            <>
+                                <Table
+                                    dataSource={prescriptions}
+                                    rowKey="_id"
+                                    columns={[
+                                        {
+                                            title: 'Date',
+                                            dataIndex: 'appointmentDate',
+                                            render: (text) => moment(text).format('YYYY-MM-DD')
+                                        },
+                                        {
+                                            title: 'Doctor',
+                                            dataIndex: ['doctor', 'name'],
+                                            render: (text) => text ? `Dr. ${text}` : 'N/A'
+                                        },
+                                        {
+                                            title: 'Status',
+                                            dataIndex: 'status',
+                                            render: (status) => (
+                                                <Tag color={status === 'completed' ? 'green' : 'orange'}>
+                                                    {status.toUpperCase()}
+                                                </Tag>
+                                            )
+                                        },
+                                        {
+                                            title: 'Actions',
+                                            key: 'actions',
+                                            render: (_, record) => (
+                                                <Button
+                                                    type="primary"
+                                                    onClick={() => {
+                                                        console.log('Full record:', record);
+                                                        if (record.prescriptionDetails) {
+                                                            setSelectedPrescription(record.prescriptionDetails);
+                                                            setPrescriptionModalVisible(true);
+                                                        } else {
+                                                            message.info('No prescription available for this appointment');
+                                                        }
+                                                    }}
+                                                >
+                                                    View Prescription
+                                                </Button>
+                                            )
+                                        }
+                                    ]}
+                                />
+
+                                <Modal
+                                    title="Prescription Details"
+                                    open={prescriptionModalVisible}
+                                    onCancel={() => {
+                                        setPrescriptionModalVisible(false);
+                                        setSelectedPrescription(null);
+                                    }}
+                                    footer={[
+                                        <Button key="close" onClick={() => {
+                                            setPrescriptionModalVisible(false);
+                                            setSelectedPrescription(null);
+                                        }}>
+                                            Close
+                                        </Button>
+                                    ]}
+                                    width={700}
+                                >
+                                    {selectedPrescription ? (
+                                        <div>
+                                            <Card title="Prescribed Medicines" style={{ marginBottom: '16px' }}>
+                                                {selectedPrescription.medicines && selectedPrescription.medicines.length > 0 ? (
+                                                    <List
+                                                        dataSource={selectedPrescription.medicines}
+                                                        renderItem={(medicine, index) => (
+                                                            <List.Item>
+                                                                <Card 
+                                                                    type="inner" 
+                                                                    title={`Medicine ${index + 1}`} 
+                                                                    style={{ width: '100%' }}
+                                                                >
+                                                                    <Row gutter={[16, 16]}>
+                                                                        <Col span={8}>
+                                                                            <Text strong>Name:</Text>
+                                                                            <br />
+                                                                            {medicine.name}
+                                                                        </Col>
+                                                                        <Col span={8}>
+                                                                            <Text strong>Dosage:</Text>
+                                                                            <br />
+                                                                            {medicine.dosage}
+                                                                        </Col>
+                                                                        <Col span={8}>
+                                                                            <Text strong>Duration:</Text>
+                                                                            <br />
+                                                                            {medicine.duration} days
+                                                                        </Col>
+                                                                    </Row>
+                                                                </Card>
+                                                            </List.Item>
+                                                        )}
+                                                    />
+                                                ) : (
+                                                    <Empty description="No medicines listed" />
+                                                )}
+                                            </Card>
+
+                                            {selectedPrescription.instructions && (
+                                                <Card title="Doctor's Instructions" style={{ marginBottom: '16px' }}>
+                                                    <p>{selectedPrescription.instructions}</p>
+                                                </Card>
+                                            )}
+
+                                            {selectedPrescription.prescribedDate && (
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <Text type="secondary">
+                                                        Prescribed on: {moment(selectedPrescription.prescribedDate).format('MMMM Do YYYY, h:mm a')}
+                                                    </Text>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <Empty description="No prescription details available" />
+                                    )}
+                                </Modal>
+                            </>
+                        )}
+                    </div>
+                );  
+                
             default:
                 return null;
         }
@@ -358,46 +414,26 @@ const UserPage = () => {
                 </div>
                 <Menu
                     theme="dark"
-                    mode="inline"
                     defaultSelectedKeys={['1']}
-                    selectedKeys={[currentPage]}
+                    mode="inline"
                     onClick={({ key }) => handleMenuClick(key)}
-                    items={[
-                        {
-                            key: '1',
-                            icon: <DashboardOutlined />,
-                            label: 'Dashboard',
-                        },
-                        {
-                            key: '2',
-                            icon: <MedicineBoxOutlined />,
-                            label: 'Doctors',
-                        },
-                        {
-                            key: '3',
-                            icon: <CalendarOutlined />,
-                            label: 'Appointments',
-                        },
-                        {
-                            key: '4',
-                            icon: <UserOutlined />,
-                            label: 'Profile',
-                            onClick: () => setCurrentPage('profile'),
-                        },
-                        {
-                            key: '5',
-                            icon: <FileTextOutlined />,
-                            label: 'Records',
-                            onClick: () => setCurrentPage('records'),
-                        },
-                        {
-                            key: '6',
-                            icon: <LogoutOutlined />,
-                            label: 'Logout',
-                            onClick: handleLogout,
-                        },
-                    ]}
-                />
+                >
+                    <Menu.Item key="1" icon={<DashboardOutlined />}>
+                        Dashboard
+                    </Menu.Item>
+                    <Menu.Item key="2" icon={<UserOutlined />}>
+                        Doctors
+                    </Menu.Item>
+                    <Menu.Item key="3" icon={<CalendarOutlined />}>
+                        Appointments
+                    </Menu.Item>
+                    <Menu.Item key="5" icon={<FileTextOutlined />}>
+                        Records
+                    </Menu.Item>
+                    <Menu.Item key="6" icon={<LogoutOutlined />} onClick={handleLogout}>
+                        Logout
+                    </Menu.Item>
+                </Menu>
             </Sider>
             <Layout style={{ marginLeft: collapsed ? 80 : 200, transition: 'all 0.2s' }}>
                 <Header style={{ 
