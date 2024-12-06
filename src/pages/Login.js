@@ -4,7 +4,7 @@ import { Form, Input, message, Spin } from "antd";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import axios from "axios";
-
+import url from '../variables';
 const Login = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);

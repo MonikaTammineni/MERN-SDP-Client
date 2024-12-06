@@ -13,6 +13,7 @@ import moment from 'moment';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/logo.png'; 
+import url from '../variables';
 
 const { Header, Sider, Content } = Layout;
 const { TabPane } = Tabs;

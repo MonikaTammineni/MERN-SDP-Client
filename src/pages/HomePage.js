@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import Logo from '../components/logo.png';
 import axios from 'axios';
 import { message } from 'antd';
-
+import url from '../variables';
 const { Header, Content, Footer } = Layout;
 
 const hospitalBlue = '#4a90e2';
